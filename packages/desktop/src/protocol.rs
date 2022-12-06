@@ -50,17 +50,15 @@ pub(super) fn desktop_handler(
             .mimetype("text/javascript")
             .body(dioxus_interpreter_js::INTERPRETER_JS.as_bytes().to_vec())
     } else {
-        let asset_root = asset_root
-            .unwrap_or_else(|| get_asset_root().unwrap_or_else(|| Path::new(".").to_path_buf()))
-            .canonicalize()?;
+        use std::str::FromStr;
+
+        #[cfg(target_os = "windows")]
+        let asset_root = PathBuf::from_str("c:\\").unwrap();
+
+        #[cfg(not(target_os = "windows"))]
+        let asset_root = PathBuf::from_str("/").unwrap();
 
         let asset = asset_root.join(trimmed).canonicalize()?;
-
-        if !asset.starts_with(asset_root) {
-            return ResponseBuilder::new()
-                .status(StatusCode::FORBIDDEN)
-                .body(String::from("Forbidden").into_bytes());
-        }
 
         if !asset.exists() {
             return ResponseBuilder::new()
