@@ -51,12 +51,15 @@ pub(super) fn desktop_handler(
             .body(dioxus_interpreter_js::INTERPRETER_JS.as_bytes().to_vec())
     } else {
         use std::str::FromStr;
-
         #[cfg(target_os = "windows")]
         let asset_root = PathBuf::from_str("c:\\").unwrap();
 
         #[cfg(not(target_os = "windows"))]
         let asset_root = PathBuf::from_str("/").unwrap();
+
+        let trimmed = urlencoding::decode(&trimmed.to_string())
+            .unwrap()
+            .to_string();
 
         let asset = asset_root.join(trimmed).canonicalize()?;
 
