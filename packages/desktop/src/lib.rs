@@ -3,6 +3,10 @@
 #![doc(html_favicon_url = "https://avatars.githubusercontent.com/u/79236386")]
 #![deny(missing_docs)]
 
+#[cfg(target_os = "macos")]
+#[macro_use]
+extern crate objc;
+
 mod cfg;
 mod desktop_context;
 mod escape;
@@ -159,10 +163,29 @@ pub fn launch_with_props<P: 'static>(root: Component<P>, props: P, cfg: Config) 
                 event, window_id, ..
             } => match event {
                 WindowEvent::CloseRequested => {
-                    webviews.remove(&window_id);
+                    // on macOS, closing the last window should not kill the app.
+                    // instead, lets hide it (in lieu of a better solution)
+                    // which is also what other mac apps do
+                    #[cfg(target_os = "macos")]
+                    {
+                        if webviews.len() == 1 {
+                            unsafe {
+                                use cocoa::appkit::NSApp;
+                                use cocoa::base::nil;
+                                use objc::runtime::Object;
+                                let _: *mut Object = msg_send![NSApp(), hide: nil];
+                            }
+                        } else {
+                            webviews.remove(&window_id);
+                        }
+                    }
+                    #[cfg(not(target_os = "macos"))]
+                    {
+                        webviews.remove(&window_id);
 
-                    if webviews.is_empty() {
-                        *control_flow = ControlFlow::Exit
+                        if webviews.is_empty() {
+                            *control_flow = ControlFlow::Exit
+                        }
                     }
                 }
                 WindowEvent::Destroyed { .. } => {

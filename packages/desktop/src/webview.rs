@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::time::Duration;
 
 use crate::desktop_context::EventData;
 use crate::protocol;
@@ -78,5 +79,31 @@ pub fn build(
         webview = webview.with_devtools(true);
     }
 
-    Rc::new(webview.build().unwrap())
+    let build = webview.build().unwrap();
+
+    // On macOS, the window flickers in a weird way when starting up.
+    // we hide it for a brief moment
+    #[cfg(target_os = "macos")]
+    {
+        use objc::runtime::Object;
+        use objc::runtime::{NO, YES};
+
+        use crate::wry::webview::WebviewExtMacOS;
+        let native_webview = build.webview();
+        unsafe {
+            use cocoa::appkit::NSApp;
+            let _: () = msg_send![native_webview, setHidden: YES];
+
+            dispatch::Queue::main().exec_after(Duration::from_millis(250), || {
+                let mw: *mut Object = msg_send![NSApp(), mainWindow];
+                let mx: *mut Object = msg_send![mw, contentView];
+                let uux: *mut Object = msg_send![mx, subviews];
+                let first: *mut Object = msg_send![uux, objectAtIndex: 0];
+                let _: () = msg_send![first, setHidden: NO];
+            });
+            dispatch::Queue::main().exec_async(move || {});
+        }
+    }
+
+    Rc::new(build)
 }
