@@ -2,6 +2,7 @@
 
 use std::{
     future::{IntoFuture, Ready},
+    rc::Rc,
     str::FromStr,
 };
 
@@ -22,9 +23,11 @@ use serde_json::Value;
 ///
 /// The closure will panic if the provided script is not valid JavaScript code
 /// or if it returns an uncaught error.
-pub fn use_eval<S: std::string::ToString>(cx: &ScopeState) -> &dyn Fn(S) -> EvalResult {
-    cx.use_hook(|| {
-        |script: S| {
+pub fn use_eval<S: std::string::ToString + 'static>(
+    cx: &ScopeState,
+) -> &Rc<dyn Fn(S) -> EvalResult> {
+    &*cx.use_hook(|| {
+        let s = move |script: S| {
             let body = script.to_string();
             EvalResult {
                 value: if let Ok(value) =
@@ -44,7 +47,8 @@ pub fn use_eval<S: std::string::ToString>(cx: &ScopeState) -> &dyn Fn(S) -> Eval
                     Err(serde_json::Error::custom("Failed to execute script"))
                 },
             }
-        }
+        };
+        Rc::new(s) as Rc<dyn Fn(S) -> EvalResult>
     })
 }
 
