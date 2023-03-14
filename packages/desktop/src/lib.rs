@@ -13,6 +13,7 @@ mod escape;
 mod eval;
 mod events;
 mod protocol;
+mod shortcut;
 mod waker;
 mod webview;
 
@@ -25,6 +26,8 @@ use dioxus_core::*;
 use dioxus_html::HtmlEvent;
 pub use eval::{use_eval, EvalResult};
 use futures_util::{pin_mut, FutureExt};
+use shortcut::ShortcutRegistry;
+pub use shortcut::{use_global_shortcut, ShortcutHandle, ShortcutId, ShortcutRegistryError};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::task::Waker;
@@ -143,6 +146,8 @@ pub fn launch_with_props<P: 'static>(root: Component<P>, props: P, cfg: Config) 
 
     let queue = WebviewQueue::default();
 
+    let shortcut_manager = ShortcutRegistry::new(&event_loop);
+
     // By default, we'll create a new window when the app starts
     queue.borrow_mut().push(create_new_window(
         cfg,
@@ -151,6 +156,7 @@ pub fn launch_with_props<P: 'static>(root: Component<P>, props: P, cfg: Config) 
         VirtualDom::new_with_props(root, props),
         &queue,
         &event_handlers,
+        shortcut_manager.clone(),
     ));
 
     event_loop.run(move |window_event, event_loop, control_flow| {
@@ -283,6 +289,7 @@ pub fn launch_with_props<P: 'static>(root: Component<P>, props: P, cfg: Config) 
 
                 _ => {}
             },
+            Event::GlobalShortcutEvent(id) => shortcut_manager.call_handlers(id),
             _ => {}
         }
     })
@@ -295,6 +302,7 @@ fn create_new_window(
     dom: VirtualDom,
     queue: &WebviewQueue,
     event_handlers: &WindowEventHandlers,
+    shortcut_manager: ShortcutRegistry,
 ) -> WebviewHandler {
     let webview = webview::build(&mut cfg, event_loop, proxy.clone());
 
@@ -304,6 +312,7 @@ fn create_new_window(
         event_loop.clone(),
         queue.clone(),
         event_handlers.clone(),
+        shortcut_manager,
     ));
 
     let id = webview.window().id();
