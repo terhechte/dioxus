@@ -101,7 +101,7 @@ pub fn build(
                 let first: *mut Object = msg_send![uux, objectAtIndex: 0];
                 let _: () = msg_send![first, setHidden: NO];
             });
-            dispatch::Queue::main().exec_async(move || {});
+            // dispatch::Queue::main().exec_async(move || {});
         }
     }
 
