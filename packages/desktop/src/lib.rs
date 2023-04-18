@@ -40,8 +40,8 @@ use tao::{
 };
 pub use wry;
 pub use wry::application as tao;
-use wry::application::window::WindowId;
 use wry::webview::WebView;
+use wry::{application::window::WindowId, webview::WebContext};
 
 /// Launch the WebView and run the event loop.
 ///
@@ -304,7 +304,7 @@ fn create_new_window(
     event_handlers: &WindowEventHandlers,
     shortcut_manager: ShortcutRegistry,
 ) -> WebviewHandler {
-    let webview = webview::build(&mut cfg, event_loop, proxy.clone());
+    let (webview, web_context) = webview::build(&mut cfg, event_loop, proxy.clone());
 
     dom.base_scope().provide_context(DesktopContext::new(
         webview.clone(),
@@ -322,6 +322,7 @@ fn create_new_window(
         webview,
         dom,
         waker: waker::tao_waker(proxy, id),
+        web_context,
     }
 }
 
@@ -329,6 +330,9 @@ struct WebviewHandler {
     dom: VirtualDom,
     webview: Rc<wry::webview::WebView>,
     waker: Waker,
+    // This is nessisary because of a bug in wry. Wry assumes the webcontext is alive for the lifetime of the webview. We need to keep the webcontext alive, otherwise the webview will crash
+    #[allow(dead_code)]
+    web_context: WebContext,
 }
 
 /// Poll the virtualdom until it's pending
